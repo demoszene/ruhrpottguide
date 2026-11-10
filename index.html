@@ -1,238 +1,581 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <title>Three.js Demo - Smooth GPU with MOD Player</title>
-  
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ruhrpottguide</title>
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --bg: #f9fafb;
+            --card-bg: #ffffff;
+            --text: #1f2937;
+            --text-light: #6b7280;
+            --star: #fbbf24;
+        }
 
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      overflow: hidden;
-      background-color: #000000;
-      font-family: 'Press Start 2P', monospace;
-    }
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
 
-    #fullscreen-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: rgba(0, 0, 0, 0.9);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      color: #00ff00;
-      font-size: 1.5rem;
-      cursor: pointer;
-      z-index: 100;
-      text-align: center;
-      padding: 20px;
-    }
+        body {
+            margin: 0; padding: 0; background-color: var(--bg); color: var(--text);
+            padding-bottom: 30px;
+        }
 
-    #logo-container {
-      position: absolute;
-      top: 20px;
-      left: 0;
-      width: 100%;
-      pointer-events: none;
-      z-index: 10;
-    }
+        header {
+            background-color: var(--primary); color: white;
+            padding: 15px 20px;
+            display: flex; align-items: center;
+            position: sticky; top: 0; z-index: 100;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
 
-    #flying-logo {
-      height: 250px;
-      position: absolute;
-      animation: bounceLeftRight 4s ease-in-out infinite alternate;
-      will-change: transform;
-    }
+        #backBtn {
+            background: none; border: none; color: white;
+            font-size: 16px; margin-right: 15px; cursor: pointer;
+            padding: 5px;
+        }
 
-    @keyframes bounceLeftRight {
-      0% { transform: translate3d(0vw, 0, 0); }
-      100% { transform: translate3d(calc(100vw - 100%), 0, 0); }
-    }
-  </style>
+        h1 { margin: 0; font-size: 20px; font-weight: 600; flex-grow: 1; }
 
-  <!-- Three.js & BassoonTracker Web Audio Engine -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://www.steffest.uk/bassoontracker/script/bassoonplayer-min.js"></script>
+        .container { padding: 20px; max-width: 600px; margin: 0 auto; }
+
+        .card {
+            background: var(--card-bg); border-radius: 12px;
+            padding: 20px; margin-bottom: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            font-size: 18px; font-weight: 500;
+            cursor: pointer; transition: transform 0.1s;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .card:active { transform: scale(0.98); }
+        .card::after { content: '›'; color: var(--text-light); font-size: 24px; }
+
+        .entry-card {
+            background: var(--card-bg); border-radius: 12px;
+            overflow: hidden; margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        .entry-header {
+            background: linear-gradient(135deg, var(--primary) 0%, #6366f1 100%);
+            color: white;
+            padding: 20px 16px;
+        }
+        .entry-title {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 700;
+            line-height: 1.25;
+        }
+        .entry-content { padding: 16px; }
+        .entry-address { color: var(--text-light); font-size: 14px; margin: 0 0 6px 0; }
+        .entry-phone { color: var(--text-light); font-size: 14px; margin: 0 0 10px 0; }
+        .entry-phone a { color: var(--primary); text-decoration: none; font-weight: 500; }
+        .entry-stars { color: var(--star); font-size: 22px; margin: 0 0 12px 0; letter-spacing: 2px; }
+        .entry-notes {
+            background: var(--bg); padding: 10px 12px; border-radius: 8px;
+            font-size: 14px; margin: 0 0 15px 0; white-space: pre-wrap;
+        }
+
+        .action-buttons {
+            display: flex; gap: 10px; margin-top: 15px;
+        }
+        .delete-btn {
+            background: #ef4444; color: white; border: none;
+            padding: 10px 12px; border-radius: 8px; cursor: pointer;
+            flex: 1; font-size: 15px; font-weight: 600;
+        }
+        .edit-btn {
+            background: #3b82f6; color: white; border: none;
+            padding: 10px 12px; border-radius: 8px; cursor: pointer;
+            flex: 1; font-size: 15px; font-weight: 600;
+        }
+
+        .add-btn {
+            background: var(--primary); color: white; border: none;
+            padding: 15px; border-radius: 12px; cursor: pointer;
+            width: 100%; font-size: 16px; font-weight: bold;
+            box-shadow: 0 4px 6px rgba(79, 70, 229, 0.2);
+            margin-top: 10px;
+        }
+
+        /* Backup / Import & Export */
+        .backup-section {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .backup-title {
+            font-size: 13px;
+            color: var(--text-light);
+            margin: 0 0 12px 0;
+            text-align: center;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .backup-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        .backup-btn {
+            flex: 1;
+            padding: 12px 10px;
+            border-radius: 10px;
+            border: 1px solid #d1d5db;
+            background: white;
+            color: var(--text);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .backup-btn:active {
+            background: #f3f4f6;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none; position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%; background: rgba(0,0,0,0.5);
+            z-index: 200; align-items: center; justify-content: center;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: white; width: 90%; max-width: 400px;
+            border-radius: 16px; padding: 20px;
+            max-height: 90vh; overflow-y: auto;
+        }
+        .modal h2 { margin-top: 0; font-size: 20px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 14px; color: var(--text-light); margin-bottom: 5px; }
+        .form-control {
+            width: 100%; padding: 10px; border: 1px solid #d1d5db;
+            border-radius: 8px; font-size: 16px;
+        }
+        textarea.form-control { resize: vertical; min-height: 80px; }
+
+        .star-rating { font-size: 32px; color: #d1d5db; cursor: pointer; display: flex; gap: 6px; }
+        .star-rating .star { user-select: none; }
+
+        .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+        .modal-actions button {
+            flex: 1; padding: 12px; border-radius: 8px; border: none;
+            font-size: 16px; font-weight: bold; cursor: pointer;
+        }
+        .btn-save { background: var(--primary); color: white; }
+        .btn-cancel { background: #e5e7eb; color: var(--text); }
+    </style>
 </head>
 <body>
 
-  <div id="fullscreen-overlay">
-    CLICK ANYWHERE TO START DEMO
-  </div>
+    <header>
+        <button id="backBtn" onclick="goBack()">❮ Zurück</button>
+        <h1 id="pageTitle">Ruhrpottguide</h1>
+    </header>
 
-  <div id="logo-container">
-    <img id="flying-logo" src="BB_Logo.jpg" alt="Bonzai Bros Logo">
-  </div>
+    <div class="container" id="appContent">
+        <!-- Dynamischer Inhalt wird hier geladen -->
+    </div>
 
-  <script>
-    const MOD_FILE_URL = 'music.mod';
+    <!-- Verstecktes Datei-Feld für den Import -->
+    <input type="file" id="importFile" style="display: none;">
 
-    function initAndPlayMod() {
-      if (window.AudioPlayer) {
-        AudioPlayer.init();
-        AudioPlayer.load(MOD_FILE_URL, function() {
-          console.log("MOD geladen, starte Musik...");
-          AudioPlayer.play();
-        });
-      }
-    }
+    <!-- Eingabeformular Modal -->
+    <div class="modal" id="entryModal">
+        <div class="modal-content">
+            <h2 id="modalTitle">Neuer Eintrag</h2>
 
-    const overlay = document.getElementById('fullscreen-overlay');
+            <div class="form-group">
+                <label>Titel</label>
+                <input type="text" id="e_title" class="form-control" placeholder="z.B. Pizzeria Napoli">
+            </div>
 
-    function startDemo() {
-      const docEl = document.documentElement;
+            <div class="form-group">
+                <label>Straße</label>
+                <input type="text" id="e_street" class="form-control" placeholder="Musterstr. 1">
+            </div>
 
-      if (docEl.requestFullscreen) {
-        docEl.requestFullscreen();
-      } else if (docEl.mozRequestFullScreen) {
-        docEl.mozRequestFullScreen();
-      } else if (docEl.webkitRequestFullscreen) {
-        docEl.webkitRequestFullscreen();
-      } else if (docEl.msRequestFullscreen) {
-        docEl.msRequestFullscreen();
-      }
+            <div class="form-group" style="display: flex; gap: 10px;">
+                <div style="flex: 1;">
+                    <label>PLZ</label>
+                    <input type="text" inputmode="numeric" id="e_zip" class="form-control" placeholder="45127">
+                </div>
+                <div style="flex: 2;">
+                    <label>Ort</label>
+                    <input type="text" id="e_city" class="form-control" placeholder="Essen">
+                </div>
+            </div>
 
-      // MOD-Musik nach dem Klick starten
-      initAndPlayMod();
+            <div class="form-group">
+                <label>Rufnummer mit Vorwahl</label>
+                <input type="tel" id="e_phone" class="form-control" placeholder="0201 1234567">
+            </div>
 
-      overlay.style.display = 'none';
-      window.removeEventListener('click', startDemo);
-    }
+            <div class="form-group">
+                <label>Bewertung</label>
+                <div class="star-rating" id="starSelector">
+                    <span class="star" data-value="1">★</span>
+                    <span class="star" data-value="2">★</span>
+                    <span class="star" data-value="3">★</span>
+                    <span class="star" data-value="4">★</span>
+                    <span class="star" data-value="5">★</span>
+                </div>
+            </div>
 
-    overlay.addEventListener('click', startDemo);
+            <div class="form-group">
+                <label>Notizen</label>
+                <textarea id="e_notes" class="form-control" placeholder="Besonders lecker..."></textarea>
+            </div>
 
-    // 1. Szene, Kamera und Renderer
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-    
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setClearColor(0x000000, 1);
-    document.body.appendChild(renderer.domElement);
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeModal()">Abbrechen</button>
+                <button class="btn-save" onclick="saveEntry()">Speichern</button>
+            </div>
+        </div>
+    </div>
 
-    // 2. 3D-Würfel
-    const cubeGeometry = new THREE.BoxGeometry();
-    const cubeMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
-    const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-    scene.add(cube);
-
-    cube.scale.set(1.55, 1.55, 1.55);
-    cube.position.y = 0.8;
-    camera.position.z = 5;
-
-    // 3. Rasterbalken
-    const rasterGroup = new THREE.Group();
-    scene.add(rasterGroup);
-
-    const numLayers = 5;
-    const barsPerLayer = 16;
-    const rasterBars = [];
-
-    const greenColors = [
-      0x002200, 0x004400, 0x006600, 0x008800,
-      0x00aa00, 0x00cc00, 0x00ee00, 0x66ff66,
-      0xaaffaa, 0x66ff66, 0x00ee00, 0x00cc00,
-      0x00aa00, 0x008800, 0x006600, 0x003300
-    ];
-
-    const planeGeo = new THREE.PlaneGeometry(30, 0.05);
-
-    for (let layer = 0; layer < numLayers; layer++) {
-      for (let i = 0; i < barsPerLayer; i++) {
-        const mat = new THREE.MeshBasicMaterial({ color: greenColors[i], side: THREE.DoubleSide });
-        const bar = new THREE.Mesh(planeGeo, mat);
-        
-        bar.userData = {
-          layer: layer,
-          index: i,
-          baseY: -1.0 - (layer * 0.22)
+    <script>
+        let defaultData = {
+            'Freizeit': {},
+            'Restaurants': {
+                'Italienisch': [],
+                'Spanisch': [],
+                'Chinesisch': []
+            }
         };
-        
-        rasterGroup.add(bar);
-        rasterBars.push(bar);
-      }
-    }
 
-    // 4. Laufschrift-Canvas
-    const tickerCanvas = document.createElement('canvas');
-    tickerCanvas.width = 2048;
-    tickerCanvas.height = 128;
-    const tickerCtx = tickerCanvas.getContext('2d');
+        let appData;
+        try {
+            const saved = localStorage.getItem('myApp_data');
+            appData = saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(defaultData));
+        } catch (e) {
+            appData = JSON.parse(JSON.stringify(defaultData));
+        }
 
-    const scrollText = "Welcome to anoter Bonzai Bros. release. Greetings s7ing!";
+        let viewState = 'categories'; // categories | subcategories | entries
+        let activeCategory = null;
+        let activeSubcategory = null;
+        let currentRating = 0;
+        let editingIndex = null;
 
-    function drawTickerText() {
-      tickerCtx.clearRect(0, 0, tickerCanvas.width, tickerCanvas.height);
-      
-      const gradient = tickerCtx.createLinearGradient(0, 0, 0, tickerCanvas.height);
-      gradient.addColorStop(0, '#fff2a3');
-      gradient.addColorStop(0.5, '#ffd700');
-      gradient.addColorStop(1, '#b8860b');
+        const contentDiv = document.getElementById('appContent');
+        const titleEl = document.getElementById('pageTitle');
+        const backBtn = document.getElementById('backBtn');
+        const modal = document.getElementById('entryModal');
+        const modalTitle = document.getElementById('modalTitle');
 
-      tickerCtx.font = '32px "Press Start 2P", monospace';
-      tickerCtx.fillStyle = gradient;
-      tickerCtx.strokeStyle = '#000000';
-      tickerCtx.lineWidth = 6;
-      
-      tickerCtx.strokeText(scrollText, 0, 80);
-      tickerCtx.fillText(scrollText, 0, 80);
-      
-      if (tickerTexture) tickerTexture.needsUpdate = true;
-    }
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
 
-    const tickerTexture = new THREE.CanvasTexture(tickerCanvas);
-    tickerTexture.wrapS = THREE.RepeatWrapping;
-    tickerTexture.wrapT = THREE.ClampToEdgeWrapping;
+        function render() {
+            contentDiv.innerHTML = '';
 
-    const tickerGeo = new THREE.PlaneGeometry(16, 1.0);
-    const tickerMat = new THREE.MeshBasicMaterial({ 
-      map: tickerTexture, 
-      transparent: true,
-      depthTest: false
-    });
-    const tickerMesh = new THREE.Mesh(tickerGeo, tickerMat);
-    tickerMesh.position.y = -2.55;
-    scene.add(tickerMesh);
+            if (viewState === 'categories') {
+                titleEl.textContent = 'Ruhrpottguide';
+                backBtn.style.display = 'none';
 
-    drawTickerText();
-    document.fonts.ready.then(drawTickerText);
+                Object.keys(appData).forEach(cat => {
+                    const card = document.createElement('div');
+                    card.className = 'card';
+                    card.textContent = cat;
+                    card.onclick = () => {
+                        activeCategory = cat;
+                        viewState = 'subcategories';
+                        render();
+                    };
+                    contentDiv.appendChild(card);
+                });
 
-    // 5. Render-Schleife
-    let textScrollOffset = 0;
+                const addBtn = document.createElement('button');
+                addBtn.className = 'add-btn';
+                addBtn.textContent = '+ Neue Hauptrubrik';
+                addBtn.onclick = () => {
+                    const name = prompt('Name der neuen Rubrik:');
+                    if (name && name.trim() && !appData[name.trim()]) {
+                        appData[name.trim()] = {};
+                        saveData();
+                        render();
+                    }
+                };
+                contentDiv.appendChild(addBtn);
 
-    function animate(time) {
-      requestAnimationFrame(animate);
+                // Import & Export Bereich
+                const backupSection = document.createElement('div');
+                backupSection.className = 'backup-section';
+                backupSection.innerHTML = `
+                    <p class="backup-title">Datensicherung &amp; Gerätewechsel</p>
+                    <div class="backup-buttons">
+                        <button class="backup-btn" onclick="exportData()">📤 Daten exportieren</button>
+                        <button class="backup-btn" onclick="triggerImport()">📥 Daten importieren</button>
+                    </div>
+                `;
+                contentDiv.appendChild(backupSection);
 
-      cube.rotation.x += 0.01;
-      cube.rotation.y += 0.01;
+            } else if (viewState === 'subcategories') {
+                titleEl.textContent = activeCategory;
+                backBtn.style.display = 'block';
 
-      const t = time * 0.003;
-      rasterBars.forEach(bar => {
-        const { layer, index, baseY } = bar.userData;
-        const wave = Math.sin(t * (1 + layer * 0.2) + index * 0.15) * 0.2;
-        bar.position.y = baseY + wave;
-      });
+                const subs = Object.keys(appData[activeCategory]);
+                if (subs.length === 0) {
+                    contentDiv.innerHTML = '<p style="text-align:center; color:#6b7280;">Noch keine Unterordner vorhanden.</p>';
+                }
 
-      textScrollOffset += 0.0025;
-      tickerTexture.offset.x = textScrollOffset;
+                subs.forEach(sub => {
+                    const card = document.createElement('div');
+                    card.className = 'card';
+                    card.textContent = sub;
+                    card.onclick = () => {
+                        activeSubcategory = sub;
+                        viewState = 'entries';
+                        render();
+                    };
+                    contentDiv.appendChild(card);
+                });
 
-      renderer.render(scene, camera);
-    }
-    
-    animate(0);
+                const addBtn = document.createElement('button');
+                addBtn.className = 'add-btn';
+                addBtn.textContent = '+ Neuer Unterordner';
+                addBtn.onclick = () => {
+                    const name = prompt('Name (z.B. Griechisch, Kino):');
+                    if (name && name.trim() && !appData[activeCategory][name.trim()]) {
+                        appData[activeCategory][name.trim()] = [];
+                        saveData();
+                        render();
+                    }
+                };
+                contentDiv.appendChild(addBtn);
 
-    // 6. Resizing Support
-    window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-  </script>
+            } else if (viewState === 'entries') {
+                titleEl.textContent = activeSubcategory;
+                backBtn.style.display = 'block';
+
+                const entries = appData[activeCategory][activeSubcategory];
+
+                if (entries.length === 0) {
+                    contentDiv.innerHTML = '<p style="text-align:center; color:#6b7280;">Noch keine Einträge vorhanden.</p>';
+                }
+
+                entries.forEach((entry, index) => {
+                    let starsHtml = '';
+                    for (let i = 1; i <= 5; i++) {
+                        starsHtml += i <= entry.rating ? '★' : '☆';
+                    }
+
+                    const zipCity = [entry.zip, entry.city].filter(Boolean).join(' ');
+                    const addressText = [entry.street, zipCity].filter(Boolean).join(', ');
+                    const telHref = entry.phone ? entry.phone.replace(/[^0-9+*#]/g, '') : '';
+
+                    const card = document.createElement('div');
+                    card.className = 'entry-card';
+                    card.innerHTML = `
+                        <div class="entry-header">
+                            <h3 class="entry-title">${escapeHtml(entry.title)}</h3>
+                        </div>
+                        <div class="entry-content">
+                            ${addressText ? `<p class="entry-address">📍 ${escapeHtml(addressText)}</p>` : ''}
+                            ${entry.phone ? `<p class="entry-phone">📞 <a href="tel:${escapeHtml(telHref)}">${escapeHtml(entry.phone)}</a></p>` : ''}
+                            <div class="entry-stars">${starsHtml}</div>
+                            ${entry.notes ? `<div class="entry-notes">${escapeHtml(entry.notes)}</div>` : ''}
+
+                            <div class="action-buttons">
+                                <button class="edit-btn" onclick="editEntry(${index})">Bearbeiten</button>
+                                <button class="delete-btn" onclick="deleteEntry(${index})">Löschen</button>
+                            </div>
+                        </div>
+                    `;
+                    contentDiv.appendChild(card);
+                });
+
+                const addBtn = document.createElement('button');
+                addBtn.className = 'add-btn';
+                addBtn.textContent = '+ Neuer Eintrag';
+                addBtn.onclick = openModal;
+                contentDiv.appendChild(addBtn);
+            }
+        }
+
+        function goBack() {
+            if (viewState === 'subcategories') {
+                viewState = 'categories';
+            } else if (viewState === 'entries') {
+                viewState = 'subcategories';
+            }
+            render();
+        }
+
+        function saveData() {
+            localStorage.setItem('myApp_data', JSON.stringify(appData));
+        }
+
+        function deleteEntry(index) {
+            if (confirm('Diesen Eintrag wirklich löschen?')) {
+                appData[activeCategory][activeSubcategory].splice(index, 1);
+                saveData();
+                render();
+            }
+        }
+
+        function editEntry(index) {
+            editingIndex = index;
+            const entry = appData[activeCategory][activeSubcategory][index];
+
+            modalTitle.textContent = 'Eintrag bearbeiten';
+
+            document.getElementById('e_title').value = entry.title || '';
+            document.getElementById('e_street').value = entry.street || '';
+            document.getElementById('e_zip').value = entry.zip || '';
+            document.getElementById('e_city').value = entry.city || '';
+            document.getElementById('e_phone').value = entry.phone || '';
+            document.getElementById('e_notes').value = entry.notes || '';
+
+            setRating(entry.rating || 0);
+            modal.classList.add('active');
+        }
+
+        // --- Modal & Formular-Logik ---
+
+        function openModal() {
+            editingIndex = null;
+            modalTitle.textContent = 'Neuer Eintrag';
+
+            document.getElementById('e_title').value = '';
+            document.getElementById('e_street').value = '';
+            document.getElementById('e_zip').value = '';
+            document.getElementById('e_city').value = '';
+            document.getElementById('e_phone').value = '';
+            document.getElementById('e_notes').value = '';
+            setRating(0);
+
+            modal.classList.add('active');
+        }
+
+        function closeModal() {
+            modal.classList.remove('active');
+        }
+
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) closeModal();
+        });
+
+        function saveEntry() {
+            const title = document.getElementById('e_title').value.trim();
+            if (!title) {
+                alert('Bitte mindestens einen Titel eingeben!');
+                return;
+            }
+
+            const newEntry = {
+                title: title,
+                street: document.getElementById('e_street').value.trim(),
+                zip: document.getElementById('e_zip').value.trim(),
+                city: document.getElementById('e_city').value.trim(),
+                phone: document.getElementById('e_phone').value.trim(),
+                notes: document.getElementById('e_notes').value.trim(),
+                rating: currentRating
+            };
+
+            if (editingIndex !== null) {
+                appData[activeCategory][activeSubcategory][editingIndex] = newEntry;
+            } else {
+                appData[activeCategory][activeSubcategory].push(newEntry);
+            }
+
+            saveData();
+            closeModal();
+            render();
+        }
+
+        // --- Export & Import ---
+
+        function exportData() {
+            const dataStr = JSON.stringify(appData, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const today = new Date().toISOString().slice(0, 10);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ruhrpottguide-backup-${today}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        function triggerImport() {
+            document.getElementById('importFile').click();
+        }
+
+        document.getElementById('importFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    const imported = JSON.parse(event.target.result);
+                    if (!imported || typeof imported !== 'object' || Array.isArray(imported)) {
+                        throw new Error('Ungültiges Format');
+                    }
+                    for (const cat of Object.keys(imported)) {
+                        if (!imported[cat] || typeof imported[cat] !== 'object' || Array.isArray(imported[cat])) {
+                            throw new Error('Ungültige Rubrik-Struktur');
+                        }
+                        for (const sub of Object.keys(imported[cat])) {
+                            if (!Array.isArray(imported[cat][sub])) {
+                                throw new Error('Ungültige Unterordner-Struktur');
+                            }
+                        }
+                    }
+
+                    if (confirm('Möchtest du die vorhandenen Einträge auf diesem Gerät durch die Backup-Datei ersetzen?')) {
+                        appData = imported;
+                        saveData();
+                        viewState = 'categories';
+                        activeCategory = null;
+                        activeSubcategory = null;
+                        render();
+                        alert('Daten erfolgreich importiert!');
+                    }
+                } catch (err) {
+                    alert('Fehler beim Import: Die ausgewählte Datei ist keine gültige Ruhrpottguide-Backup-Datei.');
+                } finally {
+                    e.target.value = '';
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        // --- Sterne-Bewertung ---
+
+        const stars = document.querySelectorAll('.star-rating .star');
+        stars.forEach(star => {
+            star.addEventListener('click', function() {
+                setRating(parseInt(this.getAttribute('data-value')));
+            });
+        });
+
+        function setRating(val) {
+            currentRating = val;
+            stars.forEach(s => {
+                const sVal = parseInt(s.getAttribute('data-value'));
+                s.style.color = sVal <= val ? '#fbbf24' : '#d1d5db';
+            });
+        }
+
+        // App starten
+        render();
+    </script>
 </body>
 </html>
